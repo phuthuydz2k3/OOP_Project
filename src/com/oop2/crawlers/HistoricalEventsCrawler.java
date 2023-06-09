@@ -1,9 +1,6 @@
-package com.oop.data;
+package com.oop2.crawlers;
 
-import com.oop.model.SuKienModel;
-import com.oop.util.Config;
-//import org.json.JSONArray;
-//import org.json.JSONObject;
+import com.oop2.util.Config;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -15,18 +12,21 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import com.oop2.models.Model;
+import com.oop2.interfaces.ICrawler;
+import com.oop2.models.HistoricalEvent;
 
-import static com.oop.util.UrlDecode.getCodeFromUrl;
+import static com.oop2.util.UrlDecode.getCodeFromUrl;
 
-public class SuKienCrawler implements ICrawler {
+public class HistoricalEventsCrawler implements ICrawler {
     @Override
-    public void crawl() {
+    public List<Model> crawlPages(String page) {
         // the URL of the target website's home page
-        String baseUrl = "https://nguoikesu.com/tu-lieu/quan-su/tran-ngoc-hoi-dong-da-nam-1789";
+        String baseUrl = page;
 
         // initializing the list of SuKienModel` data objects
         // that will contain the scraped data
-        List<SuKienModel> cacSuKienLichSu = new ArrayList<>();
+        List<Model> historicalEvents = new ArrayList<>();
 
         // downloading the target website with an HTTP GET request
         Document doc;
@@ -42,6 +42,8 @@ public class SuKienCrawler implements ICrawler {
         Elements nextElements = doc.select("a.btn.btn-sm.btn-secondary.next");
         String completeUrl = "";
         // looking for the "Next →" HTML element
+
+        int id = 0;
         while (baseUrl.compareTo(completeUrl)!=0 && (!nextElements.isEmpty())) {
             // getting the "Next →" HTML element
             Element nextElement = nextElements.first();
@@ -62,9 +64,8 @@ public class SuKienCrawler implements ICrawler {
             // retrieving the list of product HTML elements
             // selecting all quote HTML elements
             //Title
-            String tenSuKien = doc.selectXpath("//*[@id=\"content\"]/div[2]/div[1]").text();
-            tenSuKien = tenSuKien.replace("\u2013", "-");
-            SuKienModel skls = new SuKienModel(tenSuKien);
+            String eventName = doc.selectXpath("//*[@id=\"content\"]/div[2]/div[1]").text();
+            eventName = eventName.replace("\u2013", "-");
 
             //Time, Place, Outcomes
             Elements elements = doc.select("table[cellpadding='0'] tr");
@@ -74,26 +75,20 @@ public class SuKienCrawler implements ICrawler {
                 attributeValue[i] = element.select("td:nth-child(2)").text();
                 i++;
             }
-            String thoiGian = "";
-            String diaDiem = "";
-            String ketQua = "";
+            String time = "";
+            String location = "";
+            String battleResult = "";
             if (attributeValue.length!=0){
-                thoiGian = attributeValue[0];
+                time = attributeValue[0];
 //                thoiGian = thoiGian.replace("\u2013", "-");
-                diaDiem = attributeValue[1];
-//                diaDiem = diaDiem.replace("\u2032", "'");
-//                diaDiem = diaDiem.replace("\u2033", "\"");
-                ketQua = attributeValue[2];
+                location = attributeValue[1];
+//                location = location.replace("\u2032", "'");
+//                location = location.replace("\u2033", "\"");
+                battleResult = attributeValue[2];
 //                ketQua = ketQua.replace("\u2032", "'");
 //                ketQua = ketQua.replace("\u2033", "\"");
-                ketQua = ketQua.replaceAll("\"", "″");
-                skls.setThoiGian(thoiGian);
-                skls.setDiaDiem(diaDiem);
-                skls.setKetQua(ketQua);
+                battleResult = battleResult.replaceAll("\"", "″");
             }
-            skls.setThoiGian(thoiGian);
-            skls.setDiaDiem(diaDiem);
-            skls.setKetQua(ketQua);
 
             //Historical Figures
             Set<String> nhanVatLienQuan = new HashSet<>();
@@ -103,7 +98,6 @@ public class SuKienCrawler implements ICrawler {
                 String name = refElement.attr("href");
                 nhanVatLienQuan.add(getCodeFromUrl(name));
             }
-            skls.setNhanVatLienQuan(nhanVatLienQuan);
 
             // Các địa điểm liên quan
             Set<String> diaDiemLienQuan = new HashSet<>();
@@ -112,8 +106,10 @@ public class SuKienCrawler implements ICrawler {
                 String name = element.attr("href");
                 diaDiemLienQuan.add(getCodeFromUrl(name));
             }
-            skls.setDiaDiemLienQuan(diaDiemLienQuan);
-            cacSuKienLichSu.add(skls);
+
+            Model skls = new HistoricalEvent(eventName, null, time, location, battleResult, nhanVatLienQuan, diaDiemLienQuan);
+            skls.setId(++id);
+            historicalEvents.add(skls);
             // looking for the "Next →" HTML element in the new page
             nextElements = doc.select("a.btn.btn-sm.btn-secondary.next");
         }
@@ -140,8 +136,15 @@ public class SuKienCrawler implements ICrawler {
 //        }
 
         // Write the JSON array to a file
-        try (FileWriter fileWriter = new FileWriter(Config.SU_KIEN_FILENAME)) {
-            fileWriter.write(cacSuKienLichSu.toString());
+
+        return historicalEvents;
+    }
+
+    @Override
+    public void writeModel(String fileName, List<Model> models)
+    {
+        try (FileWriter fileWriter = new FileWriter(Config.EVENT_FILENAME)) {
+            fileWriter.write(models.toString());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -149,7 +152,8 @@ public class SuKienCrawler implements ICrawler {
 
     // testing
     public static void main(String[] args) {
-        SuKienCrawler test = new SuKienCrawler();
-        test.crawl();
+        HistoricalEventsCrawler test = new HistoricalEventsCrawler();
+        List<Model> historicalEvents = test.crawlPages(Config.EVENT_WEBPAGE);
+        test.writeModel(Config.EVENT_FILENAME, historicalEvents);
     }
 }

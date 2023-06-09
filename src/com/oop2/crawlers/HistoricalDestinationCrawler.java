@@ -1,28 +1,27 @@
-package com.oop.data;
+package com.oop2.crawlers;
 
-import com.oop.model.DiaDanhModel;
-import com.oop.util.Config;
+import com.oop2.interfaces.ICrawler;
+import com.oop2.models.HistoricalDestination;
+import com.oop2.models.Model;
+import com.oop2.util.Config;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import static com.oop2.util.UrlDecode.getCodeFromUrl;
 
-
-import static com.oop.util.UrlDecode.getCodeFromUrl;
-
-public class DiaDanhCrawler implements ICrawler {
+public class HistoricalDestinationCrawler implements ICrawler {
     @Override
-    public void crawl() {
-        String baseUrl = "https://nguoikesu.com/dia-danh/bien-dong";
+    public List<Model> crawlPages(String page) {
+        String baseUrl = page;
         // List
-        List<DiaDanhModel> diaDanhList = new ArrayList<>();
+        List<Model> destinationList = new ArrayList<>();
         Document doc;
         try {
             doc =  Jsoup
@@ -37,6 +36,7 @@ public class DiaDanhCrawler implements ICrawler {
         String completeUrl = "";
 
         // Looking for the "Next"
+        int id = 0;
         while (baseUrl.compareTo(completeUrl) != 0 && (!nextElements.isEmpty())) {
             // Getting the "Next"
             Element nextElement = nextElements.first();
@@ -82,17 +82,16 @@ public class DiaDanhCrawler implements ICrawler {
             if (titleElement != null) {
                  title = titleElement.text();
             }
-            DiaDanhModel diaDanh = new DiaDanhModel(title);
 
-            // Get dia danh code
-            diaDanh.setDiaDanhCode(getCodeFromUrl(completeUrl));
-            System.out.println(diaDanh.getDiaDanhCode());
-            // Get description
+            List<String> texts = new ArrayList<>();
+
             Elements desElements = doc.select("div.com-content-article__body > p");
             for(Element element : desElements) {
                 String text = element.text();
                 if (text.length() > 50) {
-                    diaDanh.setDescription(text);
+                    text = text.replaceAll("\"", "'");
+
+                    texts.add(text);
                     break;
                 }
             }
@@ -104,14 +103,22 @@ public class DiaDanhCrawler implements ICrawler {
                 String name = refElement.attr("href");
                 nhanVatLienQuan.add(getCodeFromUrl(name));
             }
-            diaDanh.setNhanVatLienQuan(nhanVatLienQuan);
-            diaDanhList.add(diaDanh);
+
+            Model destination =  new HistoricalDestination(title, texts, getCodeFromUrl(completeUrl), nhanVatLienQuan);
+            destination.setId(++id);
+            destinationList.add(destination);
             nextElements = doc.select("a.btn.btn-sm.btn-secondary.next");
         }
 
+        return destinationList;
+    }
+
+    @Override
+    public void writeModel(String fileName, List<Model> models)
+    {
         // Print all data in json file
-        try (FileWriter writer = new FileWriter(Config.DIA_DANH_FILENAME)) {
-            writer.write(diaDanhList.toString());
+        try (FileWriter writer = new FileWriter(Config.HISTORICAL_DESTINATION_FILENAME)) {
+            writer.write(models.toString());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -119,7 +126,8 @@ public class DiaDanhCrawler implements ICrawler {
 
     // Testing
     public static void main(String[] args) {
-        DiaDanhCrawler test = new DiaDanhCrawler();
-        test.crawl();
+        HistoricalDestinationCrawler test = new HistoricalDestinationCrawler();
+        List<Model> locationList = test.crawlPages(Config.HISTORICAL_DESTINATION_WEBPAGE);
+        test.writeModel(Config.HISTORICAL_DESTINATION_FILENAME, locationList);
     }
 }

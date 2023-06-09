@@ -1,4 +1,4 @@
-package com.oop.service;
+package com.oop.services;
 
 public interface IDiaDanhService {
 }

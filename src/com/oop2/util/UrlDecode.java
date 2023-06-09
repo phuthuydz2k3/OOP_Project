@@ -1,4 +1,4 @@
-package com.oop.util;
+package com.oop2.util;
 
 public class UrlDecode {
     public static String getCodeFromUrl(String url) {

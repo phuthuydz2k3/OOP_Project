@@ -1,4 +1,4 @@
-package com.oop.repository;
+package com.oop.repositories;
 
 public class DiaDanhRepository {
 
